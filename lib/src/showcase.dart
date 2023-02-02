@@ -362,33 +362,37 @@ class _ShowcaseState extends State<Showcase> {
 
   /// show overlay if there is any target widget
   void showOverlay() {
+    if (!mounted) return;
     final activeStep = ShowCaseWidget.activeTargetWidget(context);
     setState(() {
       _showShowCase = activeStep == widget.key;
     });
 
-    if (activeStep == widget.key) {
+    if (activeStep == widget.key && mounted) {
       if (showCaseWidgetState.enableAutoScroll) {
         _scrollIntoView();
       }
 
       if (showCaseWidgetState.autoPlay) {
         timer = Timer(
-            Duration(seconds: showCaseWidgetState.autoPlayDelay.inSeconds),
-            _nextIfAny);
+          Duration(seconds: showCaseWidgetState.autoPlayDelay.inSeconds),
+          _nextIfAny,
+        );
       }
     }
   }
 
   void _scrollIntoView() {
     ambiguate(WidgetsBinding.instance)?.addPostFrameCallback((timeStamp) async {
-      setState(() => _isScrollRunning = true);
-      await Scrollable.ensureVisible(
-        widget.key.currentContext!,
-        duration: showCaseWidgetState.widget.scrollDuration,
-        alignment: 0.5,
-      );
-      setState(() => _isScrollRunning = false);
+      if (mounted) {
+        setState(() => _isScrollRunning = true);
+        await Scrollable.ensureVisible(
+          widget.key.currentContext!,
+          duration: showCaseWidgetState.widget.scrollDuration,
+          alignment: 0.5,
+        );
+        if (mounted) setState(() => _isScrollRunning = false);
+      }
     });
   }
 
@@ -414,40 +418,42 @@ class _ShowcaseState extends State<Showcase> {
   }
 
   Future<void> _nextIfAny() async {
-    if (timer != null && timer!.isActive) {
-      if (showCaseWidgetState.enableAutoPlayLock) {
-        return;
+    if (mounted) {
+      if (timer != null && timer!.isActive) {
+        if (showCaseWidgetState.enableAutoPlayLock) {
+          return;
+        }
+        timer!.cancel();
+      } else if (timer != null && !timer!.isActive) {
+        timer = null;
       }
-      timer!.cancel();
-    } else if (timer != null && !timer!.isActive) {
-      timer = null;
+      await _reverseAnimateTooltip();
+      if (mounted) showCaseWidgetState.completed(widget.key);
     }
-    await _reverseAnimateTooltip();
-    showCaseWidgetState.completed(widget.key);
   }
 
   Future<void> _getOnTargetTap() async {
-    if (widget.disposeOnTap == true) {
+    if (widget.disposeOnTap == true && mounted) {
       await _reverseAnimateTooltip();
       showCaseWidgetState.dismiss();
       widget.onTargetClick!();
-    } else {
+    } else if (mounted) {
       (widget.onTargetClick ?? _nextIfAny).call();
     }
   }
 
   Future<void> _getOnTooltipTap() async {
-    if (widget.disposeOnTap == true) {
+    if (widget.disposeOnTap == true && mounted) {
       await _reverseAnimateTooltip();
       showCaseWidgetState.dismiss();
     }
-    widget.onToolTipClick?.call();
+    if (mounted) widget.onToolTipClick?.call();
   }
 
   /// Reverse animates the provided tooltip or
   /// the custom container widget.
   Future<void> _reverseAnimateTooltip() async {
-    setState(() => _isTooltipDismissed = true);
+    if (mounted) setState(() => _isTooltipDismissed = true);
     await Future<dynamic>.delayed(widget.scaleAnimationDuration);
     _isTooltipDismissed = false;
   }
@@ -459,7 +465,7 @@ class _ShowcaseState extends State<Showcase> {
     Size screenSize,
   ) {
     var blur = 0.0;
-    if (_showShowCase) {
+    if (_showShowCase && mounted) {
       blur = widget.blurValue ?? showCaseWidgetState.blurValue;
     }
 
@@ -467,12 +473,13 @@ class _ShowcaseState extends State<Showcase> {
     // provided blur is less than 0.
     blur = kIsWeb && blur < 0 ? 0 : blur;
 
-    if (!_showShowCase) return const SizedBox.shrink();
+    if (!_showShowCase || !mounted) return const SizedBox.shrink();
 
     return Stack(
       children: [
         GestureDetector(
           onTap: () {
+            if (!mounted) return;
             if (!showCaseWidgetState.disableBarrierInteraction) {
               _nextIfAny();
             }
