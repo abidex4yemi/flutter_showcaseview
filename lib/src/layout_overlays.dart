@@ -64,7 +64,15 @@ class AnchoredOverlay extends StatelessWidget {
           overlayBuilder: (overlayContext) {
             // To calculate the "anchor" point we grab the render box of
             // our parent Container and then we find the center of that box.
-            final box = context.findRenderObject() as RenderBox;
+              
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (mounted) {
+      final box = context.findRenderObject() as RenderBox;
+    }
+  });
+              
+              
+           
             final topLeft =
                 box.size.topLeft(box.localToGlobal(const Offset(0.0, 0.0)));
             final bottomRight =
